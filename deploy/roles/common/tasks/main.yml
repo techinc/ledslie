@@ -17,8 +17,8 @@
     name: "{{ item }}"
   loop:
     - git
-    - python-pip
-    - python-virtualenv
+    - python3-pip
+    - python3-virtualenv
     - libopenjp2-7
 
 - name: Create Python virtualenv
