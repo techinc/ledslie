@@ -110,8 +110,7 @@ class OVInfoContent(GenericContent):
 
     def update_ov_info(self):
         d = treq.get(next(self.urls))
-        d.addCallbacks(self.grab_http_response, self._logFailure)
-        d.addCallbacks(self.parse_json_page, self._logFailure)
+        d.addCallbacks(self.grab_json_response, self._logFailure)
         d.addCallbacks(self.update_depature_info, self._logFailure)
 
     def publish_ov_info(self):
@@ -142,14 +141,10 @@ class OVInfoContent(GenericContent):
             lines.append(display_str)
         return lines
 
-    def grab_http_response(self, response):
+    def grab_json_response(self, response):
         if response.code != 200:
             raise RuntimeError("Status is not 200 but '%s'" % response.code)
-        return readBody(response)
-
-    def parse_json_page(self, content):
-        prices = json.loads(content.decode())
-        return prices
+        return response.json()
 
     def update_depature_info(self, data):
         dparser = date_parser()
