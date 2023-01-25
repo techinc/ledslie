@@ -9,7 +9,7 @@ PermissionsStartOnly=true
 ExecStartPre=-/bin/mkdir -p /var/run/ledslie/
 ExecStartPre=/bin/chown {{ ansible_user }}:www-data /var/run/ledslie/
 ExecStartPre=/bin/chmod 771 /var/run/ledslie/
-ExecStart=/home/{{ ansible_user }}/pyenv/bin/python /home/{{ ansible_user }}/src/ledslie.fcgi
+ExecStart=/home/{{ ansible_user }}/pyenv/bin/python /home/{{ ansible_user }}/src/ledslie/interface/site.py
 
 [Install]
 WantedBy=multi-user.target
