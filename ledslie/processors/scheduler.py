@@ -132,7 +132,7 @@ class LEDScreen(Protocol):
         for b in image_data:
             shifted_data.append(b >> 1)  # Downshift the data one byte. making the highbyte 0.
         shifted_data.append(1 << 7)  ## end with a new frame marker, a byte with the high byte 1
-        return shifted_data
+        return bytes(shifted_data)
 
 
 class FakeSerialPort(object):

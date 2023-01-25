@@ -6,7 +6,10 @@ After=network.target nginx.service
 EnvironmentFile=-/etc/default/ledslie
 User=www-data
 PermissionsStartOnly=true
-ExecStartPre=-/bin/mkdir /var/run/ledslie/
+ExecStartPre=-/bin/mkdir -p /var/run/ledslie/
 ExecStartPre=/bin/chown {{ ansible_user }}:www-data /var/run/ledslie/
 ExecStartPre=/bin/chmod 771 /var/run/ledslie/
 ExecStart=/home/{{ ansible_user }}/pyenv/bin/python /home/{{ ansible_user }}/src/ledslie.fcgi
+
+[Install]
+WantedBy=multi-user.target
