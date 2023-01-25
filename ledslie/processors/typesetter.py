@@ -142,7 +142,7 @@ class Typesetter(GenericProcessor):
         try:
             font = ImageFont.truetype(font_path, int(font_size))
         except OSError as exc:
-            print("Can't find the font file '%s': %s" % (font_path, exc))
+            print(("Can't find the font file '%s': %s" % (font_path, exc)))
             return None
         draw.text((0, 0), text, 255, font=font)
         return image.tobytes()

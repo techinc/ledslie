@@ -127,7 +127,7 @@ def make_app():
     app.config.from_object('ledslie.defaults')
     app.config.from_envvar('LEDSLIE_CONFIG')
     mqtt.init_app(app)
-    print("broker url: %s. port: %s." % (mqtt.broker_url, mqtt.broker_port))
+    print(("broker url: %s. port: %s." % (mqtt.broker_url, mqtt.broker_port)))
     return app
 
 

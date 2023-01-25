@@ -59,7 +59,7 @@ class CircularBuffer(object):
         found = None
 
         # Remove from the Table
-        for k, v in self._table.items():
+        for k, v in list(self._table.items()):
             if v == value:
                 found = k
                 break
