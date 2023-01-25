@@ -42,9 +42,9 @@ def insert_record(parts: RecordParts):
     wh = float(parts.wh)
     pulse = int(parts.pulse)
     ts = epoch_ns()
-    c = parts.conn.cursor()
-    c.execute("INSERT INTO power (ts, wh, pulse, status_uptime) VALUES (?, ?, ?, ?)", (ts, wh, pulse, status_uptime))
-    parts.conn.commit()
+    # c = parts.conn.cursor()
+    # c.execute("INSERT INTO power (ts, wh, pulse, status_uptime) VALUES (?, ?, ?, ?)", (ts, wh, pulse, status_uptime))
+    # parts.conn.commit()
     #print("record: {}".format(RecordParts.__dict__))
 
 
