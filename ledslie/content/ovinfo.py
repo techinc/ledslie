@@ -13,17 +13,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import json
 import os
 
-from datetime import datetime
-from dateutil.parser import parser as date_parser
-from jsonpath_rw.parser import JsonPathParser
-from twisted.internet.defer import Deferred
-from twisted.logger import Logger
+from datetime import datetime, timedelta
+from collections import defaultdict
 
+from twisted.logger import Logger
 from twisted.internet import reactor, task
-from twisted.web.client import readBody
 import treq
 
 from ledslie.config import Config
@@ -41,18 +37,29 @@ from ledslie.messages import TextTripleLinesLayout
 # Example of this interface: https://github.com/osresearch/esp32-ttgo/blob/master/demo/BusTimeNL/BusTimeNL.ino
 # Twisted websockets client https://github.com/crossbario/autobahn-python/tree/master/examples/twisted/websocket/echo
 
-DestinationCode_to_name = {
+ShortNameOfStoparea = {
+    '04318': 'Henk Sneevlietweg',
+    '04094': 'Aletta Jacobslaan',
+    '04088': 'Louwesweg'
+}
+
+ShortNameOfDestinationCode = {
+    'SLL': 'Lely',
+    'AMS': 'Amstl',
     'CS': 'CS',
     'NCS': 'CS',
-    'SLL': 'Ly',
-    'AMS': 'Am',
-    'M09501429': 'SCH',
-    'M19501429': 'SCH',
-    'M19534388': 'SCH',
-    'M19505436': 'Ly',
-    'M09505436': 'Ly',
-    'SNP': 'SNP',
+    'M09501429': 'Schphl',
+    'M19501429': 'Schphl',
+    'M19534388': 'Schphl',
+    'M19505436': 'Lely',
+    'M09505436': 'Lely',
 }
+
+ShortnamesOfMetroDestinations = {
+        'GEN': 'Gein',
+        'CS': 'CS',
+        'ITW': 'Iso'}
+
 DestinationCode_ignore = {  # These are final stops walking distance from the space. No need to waste screen on these.
     'NSN',  # Nieuw Sloten
     'SLV',  # Slotervaart
@@ -60,30 +67,60 @@ DestinationCode_ignore = {  # These are final stops walking distance from the sp
     'ONPN',  # Oudenaardeplantsoen
 }
 
-class Transports(object):
-    def __init__(self):
-        self.routes = {}
+class Pass():
+    def __init__(self, pass_info):
+        self.p = pass_info
 
-    def add_pass(self, number: str, dest_code: str, journey_nr: int, pass_time: datetime):
-        key = (number, dest_code)
-        journeys = self.routes.setdefault(key, {})
-        journeys[journey_nr] = pass_time
+    def is_valid(self):
+        indices = ['TransportType', 'DestinationCode', 'LinePublicNumber', 'ExpectedArrivalTime', 'StopAreaCode']
+        return all(index in self.p for index in indices)
 
-    def pass_overview(self, now=None):
-        now = datetime.now() if now is None else now
-        overview = []
-        for key in sorted(self.routes):  # sorting makes testing easier and keeps display order consistent.
-            (line_nr, dest_code) = key
-            journeys = self.routes[key]
-            passes = []
-            for journey_nr, pass_moment in list(journeys.items()):
-                if pass_moment > now:  # The transport is still to pass by.
-                    passes.append(pass_moment)
-                else:  # this moment has already passed
-                    del journeys[journey_nr]
-            if passes:  # only add to the overview if there are passes to report.
-                overview.append([line_nr, dest_code, sorted(passes)])
-        return overview
+    def type(self) -> str:
+        return self.p['TransportType'].upper()
+
+    def destination(self) -> str:
+        destination_code = self.p['DestinationCode']
+        if self.type() == 'METRO':
+            for x in ShortnamesOfMetroDestinations:
+                if x in destination_code:
+                    return ShortnamesOfMetroDestinations[x]
+        s = ShortNameOfDestinationCode.get(destination_code)
+        if s:
+            return s
+        return destination_code[:3]
+
+    # Special case for metro 50/51 to Isolatorweg because they are identical
+    def line(self) -> str:
+        line = self.p['LinePublicNumber']
+        if line in ["50", "51"] and self.destination() == ShortnamesOfMetroDestinations['ITW'] and self.type() == "METRO":
+            line = "50/51"
+        return line
+
+    def short_stopareacode(self) -> str:
+        return ShortNameOfStoparea[self.p['StopAreaCode']]
+
+    def time(self) -> datetime:
+        try:
+            return datetime.fromisoformat(self.p['ExpectedArrivalTime'])
+        except:
+            return datetime.min
+
+class Lines():
+    def __init__(self, config):
+        self.lines = defaultdict(list)
+        self.config = config
+
+    def add_pass(self, p: Pass):
+        self.lines[(p.line(), p.destination(), p.type())].append(p)
+
+    def from_location(self, idx):
+        for p in self.lines[idx]:
+            return p.short_stopareacode()
+
+    def arrival_times(self, idx):
+        times = [p.time() - datetime.now() for p in self.lines[idx]]
+        times = sorted([time for time in times if time > timedelta(seconds=self.config['OVINFO_DISPLAY_CUTOFF'])])
+        return times
 
 
 class OVInfoContent(GenericContent):
@@ -93,76 +130,112 @@ class OVInfoContent(GenericContent):
         self.update_task = None
         self.publish_task = None
         self.urls = CircularBuffer(self.config['OVINFO_STOPAREA_URLS'])
-        self.lines = Transports()
+        self.lines = Lines(self.config)
 
     def onBrokerConnected(self):
-        self.update_task = task.LoopingCall(self.update_ov_info)
-        # update_delay_time = float(60) / len(self.urls)
+        self.update_task = task.LoopingCall(self.request_ov_info)
         update_delay_time = float(self.config['OVINFO_UPDATE_FREQ']) / len(self.urls)
         self.update_task.start(update_delay_time, now=True)
-        self.publish_task = task.LoopingCall(self.publish_ov_info)
-        self.publish_task.start(self.config['OVINFO_PUBLISH_FREQ'], now=True)
-        # self.publish_task.start(15, now=True)
+
+        def publish():
+            self.publish_ov_display(self.construct_lines(None))
+
+        self.publish_task = task.LoopingCall(publish)
+        self.publish_task.start(self.config['OVINFO_PUBLISH_FREQ'])
 
     def _logFailure(self, failure):
         self.log.debug("reported failure: {message}", message=failure.getErrorMessage())
         return failure
 
-    def update_ov_info(self):
-        d = treq.get(next(self.urls))
-        d.addCallbacks(self.grab_json_response, self._logFailure)
-        d.addCallbacks(self.update_depature_info, self._logFailure)
+    def request_ov_info(self):
+        url = next(self.urls)
+        print(url)
+        d = treq.get(url)
+        d.addCallback(self.received_ov_info)
 
-    def publish_ov_info(self):
-        lines = self.create_ov_display()
-        return self.publish_ov_display(lines)
+    def received_ov_info(self, response):
+        if response.code == 200:
+            d = response.json()
+            d.addCallback(self.parse_json)
+            d.addCallback(self.line_deduplication)
+            d.addCallback(self.construct_lines)
+            d.addCallback(self.publish_ov_display)
 
-    def now(self) -> datetime:
-        return datetime.now()
-
-    def time_formatter(self, dt: datetime, now=None):
-        now = self.now() if now is None else now
-        t_diff = (dt - now).seconds  # time difference in seconds.
-        if t_diff < 30*60:  # difference smaller then 30 minutes:
-            return "{}m".format(round(t_diff/60))
-        elif t_diff < 60*60:  # difference smaller then an hour
-            return ":{:02d}".format(dt.minute)
-        else:
-            return "{:02d}:{:02d}".format(dt.hour, dt.minute)
-
-    def create_ov_display(self):
-        lines = []
-        for line_nr, dest_code, passes in self.lines.pass_overview():
-            if dest_code in DestinationCode_ignore:
+    def parse_json(self, json):
+        for stopareacode in json:
+            if stopareacode not in ShortNameOfStoparea:
                 continue
-            dest_name = DestinationCode_to_name.get(dest_code, dest_code)
-            formatted_passes = " ".join(map(self.time_formatter, passes))
-            display_str = "{:>3}{} {}".format(line_nr, dest_name, formatted_passes)
-            lines.append(display_str)
-        return lines
+            stoparea = json[stopareacode]
+            for timingpointcode in stoparea:
+                passes = stoparea[timingpointcode]['Passes']
+                for pass_name in passes:
+                    p = passes[pass_name]
+                    if p['DestinationCode'] in DestinationCode_ignore:
+                        continue
+                    p = Pass(p)
+                    if p.is_valid():
+                        self.lines.add_pass(p)
 
-    def grab_json_response(self, response):
-        if response.code != 200:
-            raise RuntimeError("Status is not 200 but '%s'" % response.code)
-        return response.json()
+    # Remove the busstop at Henk Sneevliet because they also passes Aletta Jacobs which is
+    # closer to the space
+    def line_deduplication(self, _):
+        for line in self.lines.lines:
+            passes = self.lines.lines[line]
+            self.lines.lines[line] = [p for p in passes if not (p.p['StopAreaCode'] == '04318' and p.type() == "BUS")]
 
-    def update_depature_info(self, data):
-        dparser = date_parser()
-        for trans in [x.value for x in JsonPathParser().parse('$..Passes.*').find(data)]:
-            expectedTime = dparser.parse(trans['ExpectedArrivalTime'])
-            destination_code = trans['DestinationCode']
-            self.lines.add_pass(trans['LinePublicNumber'], destination_code,
-                                trans['JourneyNumber'], expectedTime)
-            if (destination_code not in DestinationCode_to_name
-                    and destination_code not in DestinationCode_ignore):
-                self.log.warn("Missing DestinationCode: %s = %s" % (destination_code, trans['DestinationName50']))
-            # 'LinePublicNumber'  -- '2'
-            # 'JourneyNumber' -- 8,
-            # 'DestinationCode' -- 'NSN'
-            # 'DestinationName50' --  'Nieuw Sloten'
-            # 'ExpectedArrivalTime' -- '2017-12-17T00:35:15'
+    def type_to_emoji(self, type):
+        if type == "METRO":
+            return "🚇"
+        if type == "BUS":
+            return "🚌"
+        if type == "TRAM":
+            return "🚊"
+        return type
 
-    def publish_ov_display(self, info_lines: list) -> Deferred:
+    def construct_lines(self, _):
+        lines = [(self.lines.from_location(line), line) for line in self.lines.lines]
+
+        def format_time(t):
+            minutes = int(t/ 60)
+            if minutes < 60:
+                return str(minutes) + 'm'
+            else:
+                return (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M")
+
+        info = str()
+        for stopareacode in ['04318', '04088', '04094']:
+            name = ShortNameOfStoparea[stopareacode]
+            location_lines = sorted([line for (location, line) in lines if location == name], key=lambda x: len(x[0]))
+            if len(location_lines) == 0:
+                continue
+
+            header = "Halte " + name + '\n'
+            amount_of_arrivals = len([y for y in [self.lines.arrival_times(x) for x in location_lines] if y])
+            if amount_of_arrivals == 0:
+                continue
+            info += header
+            for (line_no, dest, type) in location_lines:
+                line = ' ' + self.type_to_emoji(type) + '  ' + line_no + '➡' + dest + ' '
+
+                arrival_times = self.lines.arrival_times((line_no, dest, type))
+                arrival_times = sorted(set(format_time(arrival.total_seconds()) for arrival in arrival_times))
+                if len(arrival_times) == 0:
+                    continue
+                arrival_times = " ".join(str(x) for x in arrival_times)
+                line += arrival_times
+                line += ' ' * 24
+
+                line = line[:24]
+                if (line[-1] == 'm' or line[-3] == ':' or line[-1] == ' '):
+                    info += line
+                else:
+                    last_space = line.rindex(' ')
+                    info += line[:last_space+1]
+                info += '\n'
+
+        return info.split('\n')[:-1]
+
+    def publish_ov_display(self, info_lines: list):
         def _logAll(*args):
             self.log.debug("all publishing complete args={args!r}", args=args)
         if not info_lines:
