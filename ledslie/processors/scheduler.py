@@ -130,8 +130,8 @@ class LEDScreen(Protocol):
                 len(image_data), config.get("DISPLAY_SIZE")))
         shifted_data = bytearray()
         for b in image_data:
-            shifted_data.append(b >> 1)  # Downshift the data one byte. making the highbyte 0.
-        shifted_data.append(1 << 7)  ## end with a new frame marker, a byte with the high byte 1
+            shifted_data.append(b >> 1)  # Downshift the data one bit. making the highbit 0.
+        shifted_data.append(1 << 7)  ## end with a new frame marker, a byte with the highbit 1
         return bytes(shifted_data)
 
 
@@ -142,7 +142,19 @@ class FakeSerialPort(object):
         self.protocol.transport = self
 
     def write(self, data):
-        log.info("FAKE WRITING #%d bytes" % len(data))
+        data = [b << 1 for b in data[:-1]]
+        d = str()
+        for idx, byte in enumerate(data):
+            if idx % int(config.get("DISPLAY_WIDTH")) == 0:
+                d += '\n'
+            if byte < 0x55:
+                d += ' '
+            elif byte > 0xaa:
+                d += '█'
+            else:
+                d += '▒'
+        print(chr(27) + "[2J")
+        print(d)
 
 
 if __name__ == '__main__':
