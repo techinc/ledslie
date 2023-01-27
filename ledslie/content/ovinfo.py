@@ -101,7 +101,7 @@ class Pass():
 
     def time(self) -> datetime:
         try:
-            return datetime.fromisoformat(self.p['ExpectedArrivalTime'])
+            return datetime.fromisoformat(self.p['ExpectedArrivalTime']).replace(tzinfo=datetime.now().tzinfo)
         except:
             return datetime.min
 
@@ -218,7 +218,8 @@ class OVInfoContent(GenericContent):
                 line = ' ' + self.type_to_emoji(type) + '  ' + line_no + '➡' + dest + ' '
 
                 arrival_times = self.lines.arrival_times((line_no, dest, type))
-                arrival_times = sorted(set(format_time(arrival.total_seconds()) for arrival in arrival_times))
+                arrival_times = sorted(set(arrival.total_seconds() for arrival in arrival_times))
+                arrival_times = [format_time(arrival) for arrival in arrival_times]
                 if len(arrival_times) == 0:
                     continue
                 arrival_times = " ".join(str(x) for x in arrival_times)
