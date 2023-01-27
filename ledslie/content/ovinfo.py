@@ -110,6 +110,9 @@ class Lines():
         self.lines = defaultdict(list)
         self.config = config
 
+    def clear(self):
+        self.lines = defaultdict(list)
+
     def add_pass(self, p: Pass):
         self.lines[(p.line(), p.destination(), p.type())].append(p)
 
@@ -156,6 +159,7 @@ class OVInfoContent(GenericContent):
     def received_ov_info(self, response):
         if response.code == 200:
             d = response.json()
+            self.lines.clear()
             d.addCallback(self.parse_json)
             d.addCallback(self.line_deduplication)
             d.addCallback(self.construct_lines)
