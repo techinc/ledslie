@@ -1,9 +1,7 @@
 ledslie_user: ledslie
 ledslie_group: ledslie
 
-gir_bridge_username: "{{ vault_gir_bridge_username }}"
-gir_bridge_password: "{{ vault_gir_bridge_password }}"
-
 admin_users:
     - chotee
     - justa
+    - thijs

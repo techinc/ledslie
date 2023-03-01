@@ -11,5 +11,5 @@ fi
 if [ "$target" == "vagrant" ]; then
     ansible-playbook -i .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory ledslie-install.yml --tags update
 else
-    ansible-playbook -i $target ledslie-install.yml --tags update
+    ansible-playbook -i $target ledslie-install.yml -kK --tags update
 fi

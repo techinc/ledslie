@@ -100,7 +100,7 @@ class MidnightContent(GenericContent):
     def onBrokerConnected(self):
         now = datetime.now(tzlocal())
         if self.is_empty:
-            for offset in self.tz_groups.keys():
+            for offset in list(self.tz_groups.keys()):
                 self.call_on_midnight_offset(now, offset)
         self.is_empty = False
 

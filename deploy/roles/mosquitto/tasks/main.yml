@@ -4,9 +4,4 @@
   loop:
     - mosquitto
     - mosquitto-clients
-
-- name: Copy the bridging configuration
-  template:
-    src: gir-bridge.conf.j2
-    dest: /etc/mosquitto/conf.d/gir-bridge.conf
   notify: restart mosquitto

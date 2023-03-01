@@ -10,6 +10,7 @@
     name: "{{ item }}"
   loop:
     - python3-dev
+    - python3-cryptography
     - libjpeg-dev
     - libfreetype6-dev
     - libtiff-dev
@@ -40,12 +41,6 @@
     chdir: "/home/{{ ansible_user }}/src/"
   tags:
     - update
-
-- name: Forcing a flup package to install again
-  pip:
-    name: git+https://github.com/pquentin/flup-py3.git#egg=flup-py3
-    state: forcereinstall
-    virtualenv: "/home/{{ ansible_user }}/pyenv"
 
 - name: Installing /etc/default/ledslie
   template:

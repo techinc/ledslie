@@ -1,1 +1,1 @@
-default ansible_host=ledslie.ti ansible_user=pi
+default ansible_host=ledslie.ti ansible_user=ledslie

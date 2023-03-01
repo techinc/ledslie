@@ -3,7 +3,6 @@ ledslie_content:
     - progress
     - midnight
     - astralinfo
-    - coins
     - events
     - ovinfo
     - rain

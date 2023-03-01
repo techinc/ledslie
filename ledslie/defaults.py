@@ -58,14 +58,15 @@ COINS_DISPLAY_DURATION    = 6*1000  # Mili-seconds that information is shown.
 
 
 OVINFO_STOPAREA_URLS      = [  # This defines the different stops we want to know what traffic passes there.
-    'http://v0.ovapi.nl/stopareacode/04088',   # TRAM 2 and Bus 18
-    'http://v0.ovapi.nl/stopareacode/asdlww',  # BUS 195 naar schiphol
-    'http://v0.ovapi.nl/stopareacode/04094',   # Bus 62 naar Lelylaan en Amstelstation
+    # 04318: Henk Sneevlietweg
+    # 04094: Aletta Jacobslaan
+    # 04088: Louwesweg
+    "http://v0.ovapi.nl/stopareacode/04318,04094,04088/departures"
 ]
-OVINFO_UPDATE_FREQ        = 15*60  # Seconds between pulling new information in from the API.
-                                   # All the URLs are hit in this time.
+OVINFO_UPDATE_FREQ        = 5*60  # Seconds between pulling new information in from the API.
 OVINFO_PUBLISH_FREQ       = 1*60   # Seconds between updating the display program.
-OVINFO_LINE_DELAY         = 2500  # Miliseconds per displayed line.
+OVINFO_LINE_DELAY         = 2000  # Miliseconds per displayed line.
+OVINFO_DISPLAY_CUTOFF     = 120  # The amount of seconds that have to be left for the arrival to be displayed
 
 MPD_PLAYING_UPDATE = 10
 MPD_HOST = 'mpd.ti'

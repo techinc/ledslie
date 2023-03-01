@@ -49,7 +49,7 @@ class TestTypesetter(object):
     def test_ledslie_typesetter_3lines(self, tsetter):
         topic = LEDSLIE_TOPIC_TYPESETTER_3LINES
         msg = TextTripleLinesLayout()
-        msg.lines = ["Ledslie \u00a9 GNU-AGPL3 ~ ;-)",
+        msg.lines = ["Ledslie \\u00a9 GNU-AGPL3 ~ ;-)",
                      "https://wiki.techinc.nl/index.php/Ledslie",
                      "https://github.com/techinc/ledslie"]
         assert 0 == len(tsetter.protocol._published_messages)

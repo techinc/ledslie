@@ -6,7 +6,7 @@ char_mapping = {
 def xmp_to_bytearray(xpm):
     r = []
     for row in xpm:
-        r.append(bytearray(map(char_mapping.get, row)))
+        r.append(bytearray(list(map(char_mapping.get, row))))
     return r
 
 invader1f1_xpm = [

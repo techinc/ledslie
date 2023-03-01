@@ -207,7 +207,7 @@ class MPDProtocol(basic.LineReceiver):
                 ['"%s"' % escape(arg.encode('utf-8') if
                                  isinstance(arg, str) else str(arg)) for arg in args]
         if debug:
-            print("sending {}".format(parts))
+            print(("sending {}".format(parts)))
         self.sendLine(" ".join(parts).encode())
 
     @iterator_wrapper
@@ -332,7 +332,7 @@ class MPDProtocol(basic.LineReceiver):
         line = line.decode('utf-8')
 
         if debug:
-            print("received {}".format(line))
+            print(("received {}".format(line)))
 
         command_list = self.state and isinstance(self.state[0], list)
         state_list = self.state[0] if command_list else self.state

@@ -60,16 +60,29 @@ def MarkupLine(image: bytearray, line: str, font: GenericFont):
     display_width = Config()['DISPLAY_WIDTH']
     char_display_width = int(display_width / font.width)  # maximum number of characters on a line
     line_image = bytearray(display_width * 8)  # Bytes of the line.
-    for j, c in enumerate(line[:char_display_width]):  # Look at each character of a line
+
+    def write_glyph(glyph, j):
+        for n, glyph_line in enumerate(glyph):  # Look at each row of the glyph (is just a byte)
+            for x in range(8):  # Look at the bits
+                if testBit(glyph_line, x) != 0:
+                    line_image[(j * font.width) + n * display_width + x] = 0xff
+
+    j = 0
+    while j < char_display_width and j < len(line):
+        c = line[j]
         try:
             glyph = font[ord(c)]
         except KeyError:
             glyph = font[ord("?")]
-        xpos = j * font.width  # Horizontal Position in the line.
-        for n, glyph_line in enumerate(glyph):  # Look at each row of the glyph (is just a byte)
-            for x in range(8):  # Look at the bits
-                if testBit(glyph_line, x) != 0:
-                    line_image[xpos + n * display_width + x] = 0xff
+
+        if isinstance(glyph[0], list):
+            for g in glyph:
+                write_glyph(g, j)
+                j += 1
+        else:
+            write_glyph(glyph, j)
+            j += 1
+
     image.extend(line_image)
 
 
@@ -142,7 +155,7 @@ class Typesetter(GenericProcessor):
         try:
             font = ImageFont.truetype(font_path, int(font_size))
         except OSError as exc:
-            print("Can't find the font file '%s': %s" % (font_path, exc))
+            print(("Can't find the font file '%s': %s" % (font_path, exc)))
             return None
         draw.text((0, 0), text, 255, font=font)
         return image.tobytes()
