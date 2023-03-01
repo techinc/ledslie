@@ -1,6 +1,6 @@
 pip>=9
 setuptools>=37
-cryptography==3.3.2
+cryptography==39.0.1
 ansible
 flask
 flask_mqtt
